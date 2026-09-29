@@ -15,7 +15,7 @@ When several ChatGPT tabs are working at the same time, visual completion notice
 - No account, backend, analytics, tracking, or network requests.
 - No popup, options page, history, or notification center.
 - No cross-tab deduplication. If two tabs finish, you hear two sounds.
-- Conservative completion detection: a generation must first be observed as active, then ChatGPT's stop control must disappear, and the latest assistant turn must expose its completed-turn actions before the sound is played.
+- Conservative completion detection: a new user turn or active generation must first be observed, then the latest assistant turn must expose its Copy action and generation must no longer be active before the sound is played.
 - If ChatGPT changes its UI and the completion signal cannot be confirmed, the extension should fail silent rather than guess.
 
 ## Install for testing

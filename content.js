@@ -1,42 +1,25 @@
 (() => {
   "use strict";
 
+  const TURN_SELECTOR = '[data-testid^="conversation-turn-"]';
+  const ROLE_SELECTOR = '[data-message-author-role]';
+  const COPY_ACTION_SELECTOR = 'button[data-testid="copy-turn-action-button"]';
   const STOP_SELECTOR = [
     '[data-testid="stop-button"]',
-    'form[data-chatgpt-composer] button[aria-label="Stop"]',
+    'button[aria-label="Stop"]',
     'button[aria-label="Stop streaming"]',
   ].join(", ");
 
-  const USER_TURN_SELECTOR = [
-    '[data-testid^="conversation-turn-"][data-turn="user"]',
-    '[data-testid^="conversation-turn-"][data-message-author-role="user"]',
-    '[data-testid^="conversation-turn-"]:has([data-message-author-role="user"])',
-    '[data-turn-key]:has([data-user-message-bubble])',
-  ].join(", ");
-
-  const ASSISTANT_TURN_SELECTOR = [
-    '[data-testid^="conversation-turn-"][data-turn="assistant"]',
-    '[data-testid^="conversation-turn-"][data-message-author-role="assistant"]',
-    '[data-testid^="conversation-turn-"]:has([data-message-author-role="assistant"])',
-    '[data-turn-key]:has([data-conversation-role="assistant"])',
-  ].join(", ");
-
-  const COMPLETION_ACTION_SELECTOR = [
-    'button[data-testid="copy-turn-action-button"]',
-    '.turn-action-controls button',
-  ].join(", ");
-
-  const VERIFY_DELAY_MS = 900;
+  const VERIFY_DELAY_MS = 700;
   const LOG_PREFIX = "[ChatGPT Response Sound]";
 
   let audioContext = null;
-  let generationActive = false;
+  let pendingResponse = false;
   let verifyTimer = null;
+  let knownUserTurns = countTurns("user");
 
   function ensureAudioContext() {
-    if (!audioContext) {
-      audioContext = new AudioContext();
-    }
+    if (!audioContext) audioContext = new AudioContext();
     if (audioContext.state === "suspended") {
       audioContext.resume().catch(() => {});
     }
@@ -46,7 +29,7 @@
   function playDoneSound() {
     const context = ensureAudioContext();
     if (context.state !== "running") {
-      console.warn(`${LOG_PREFIX} AudioContext is not running; no sound played.`);
+      console.warn(`${LOG_PREFIX} completion confirmed, but audio is not unlocked.`);
       return;
     }
 
@@ -57,29 +40,45 @@
     oscillator.type = "sine";
     oscillator.frequency.setValueAtTime(880, now);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.14, now + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.20);
+    gain.gain.exponentialRampToValueAtTime(0.16, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
 
     oscillator.connect(gain);
     gain.connect(context.destination);
     oscillator.start(now);
-    oscillator.stop(now + 0.21);
+    oscillator.stop(now + 0.23);
 
     console.debug(`${LOG_PREFIX} response complete; sound played.`);
+  }
+
+  function getTurns() {
+    return [...document.querySelectorAll(TURN_SELECTOR)];
+  }
+
+  function roleOf(turn) {
+    const roleNode = turn.querySelector(ROLE_SELECTOR);
+    return roleNode?.getAttribute("data-message-author-role") || null;
+  }
+
+  function countTurns(role) {
+    return getTurns().filter((turn) => roleOf(turn) === role).length;
+  }
+
+  function latestTurn(role) {
+    const turns = getTurns();
+    for (let i = turns.length - 1; i >= 0; i -= 1) {
+      if (roleOf(turns[i]) === role) return turns[i];
+    }
+    return null;
   }
 
   function isGenerating() {
     return Boolean(document.querySelector(STOP_SELECTOR));
   }
 
-  function lastElement(selector) {
-    const elements = document.querySelectorAll(selector);
-    return elements.length ? elements[elements.length - 1] : null;
-  }
-
   function latestAssistantIsComplete() {
-    const user = lastElement(USER_TURN_SELECTOR);
-    const assistant = lastElement(ASSISTANT_TURN_SELECTOR);
+    const user = latestTurn("user");
+    const assistant = latestTurn("assistant");
     if (!user || !assistant) return false;
 
     const followsUser = Boolean(
@@ -87,7 +86,7 @@
     );
     if (!followsUser) return false;
 
-    return Boolean(assistant.querySelector(COMPLETION_ACTION_SELECTOR));
+    return Boolean(assistant.querySelector(COPY_ACTION_SELECTOR));
   }
 
   function cancelVerification() {
@@ -97,37 +96,44 @@
     }
   }
 
+  function arm(reason) {
+    if (pendingResponse) return;
+    pendingResponse = true;
+    console.debug(`${LOG_PREFIX} response pending (${reason}).`);
+  }
+
   function scheduleVerification() {
-    if (verifyTimer !== null) return;
+    if (!pendingResponse || verifyTimer !== null) return;
 
     verifyTimer = setTimeout(() => {
       verifyTimer = null;
-
-      if (!generationActive || isGenerating()) return;
+      if (!pendingResponse) return;
+      if (isGenerating()) return;
       if (!latestAssistantIsComplete()) return;
 
-      generationActive = false;
+      pendingResponse = false;
       playDoneSound();
     }, VERIFY_DELAY_MS);
   }
 
   function checkState() {
+    const userTurns = countTurns("user");
+    if (userTurns > knownUserTurns) {
+      knownUserTurns = userTurns;
+      arm("new user turn");
+    }
+
     if (isGenerating()) {
       cancelVerification();
-      if (!generationActive) {
-        generationActive = true;
-        console.debug(`${LOG_PREFIX} generation detected.`);
-      }
+      arm("generation control");
       return;
     }
 
-    if (generationActive) scheduleVerification();
+    scheduleVerification();
   }
 
   function primeAudio() {
     ensureAudioContext();
-    document.removeEventListener("pointerdown", primeAudio, true);
-    document.removeEventListener("keydown", primeAudio, true);
   }
 
   document.addEventListener("pointerdown", primeAudio, true);
@@ -137,7 +143,7 @@
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ["aria-label", "data-testid", "data-turn", "data-message-author-role"],
+    attributeFilter: ["aria-label", "data-testid", "data-message-author-role"],
   });
 
   checkState();
