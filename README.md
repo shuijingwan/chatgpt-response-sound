@@ -1,55 +1,62 @@
 # ChatGPT Response Sound
 
-A tiny Firefox extension that plays one short sound when a ChatGPT response finishes.
+**中文** | [English](README_EN.md)
 
-## Why
+一个极简的 Firefox 扩展：当 ChatGPT 的回复真正完成时，播放一次简短提示音。
 
-When several ChatGPT tabs are working at the same time, visual completion notices are easy to miss. This extension has one job: **when a response is actually finished, make a sound**.
+## 为什么做这个扩展
 
-## Design
+同时运行多个 ChatGPT 标签页时，回复完成后的视觉提示很容易被错过。这个扩展只做一件事：**当一条回复确认完成时，响一下。**
 
-- Firefox only for now.
-- Runs only on `https://chatgpt.com/*`.
-- No account, backend, analytics, tracking, or network requests.
-- No popup, options page, history, or notification center.
-- No cross-tab deduplication. If two tabs finish, you hear two sounds.
-- Conservative completion detection: a generation must first be observed as active, then ChatGPT's stop control must disappear, and the latest assistant turn must expose its completed-turn actions before the sound is played.
-- If ChatGPT changes its UI and the completion signal cannot be confirmed, the extension should fail silent rather than guess.
+目标不是猜测 ChatGPT 是否“差不多完成”，而是尽可能保守地确认当前生成周期已经结束，再播放声音。
 
-## Install for testing
+## 设计原则
 
-1. Clone or download this repository.
-2. Open `about:debugging#/runtime/this-firefox` in Firefox.
-3. Click **Load Temporary Add-on…**.
-4. Select `manifest.json` from this repository.
-5. Reload existing `chatgpt.com` tabs.
+- 目前仅支持 Firefox。
+- 仅运行于 `https://chatgpt.com/*`。
+- 不需要账号、后端服务或额外网络请求。
+- 不包含统计、跟踪或遥测。
+- 不提供弹窗、设置页、历史记录或通知中心。
+- 不进行跨标签页去重：两个标签页分别完成，就响两次。
+- 使用保守的完成判定：先观察到生成已经开始，再确认 ChatGPT 的停止控件消失，并确认最新 assistant turn 已出现完成后的操作控件，最后才播放声音。
+- 如果 ChatGPT 改版导致无法确认完成状态，扩展应当保持静默，而不是通过不可靠的猜测触发声音。
 
-Firefox removes temporary add-ons after the browser restarts. Packaging/signing can be added later if the implementation proves reliable.
+## 临时安装与测试
 
-## Usage
+1. Clone 或下载本仓库。
+2. 在 Firefox 中打开 `about:debugging#/runtime/this-firefox`。
+3. 点击 **加载临时附加组件…**。
+4. 选择仓库中的 `manifest.json`。
+5. 重新加载已经打开的 `chatgpt.com` 标签页。
 
-Use ChatGPT normally. After you submit a prompt, the extension observes that tab's generation cycle. When that response is confirmed complete, it plays one short beep.
+Firefox 重启后会移除临时加载的扩展。等实现经过实际使用验证后，再考虑正式打包和签名。
 
-Each tab is independent. Two completed tabs produce two beeps.
+## 使用方式
 
-## Debugging
+正常使用 ChatGPT 即可。发送提示词后，扩展会观察当前标签页的生成周期。确认本次回复完成后，立即播放一次短提示音。
 
-Open Firefox DevTools for a ChatGPT tab and filter the console for:
+每个标签页互相独立。如果两个标签页先后完成，会分别响一次。
+
+## 调试
+
+打开 ChatGPT 标签页的 Firefox 开发者工具，在控制台中过滤：
 
 ```text
 [ChatGPT Response Sound]
 ```
 
-The extension logs when generation is detected and when a completion sound is played. It does not log message contents.
+扩展会记录检测到生成开始以及确认完成并播放声音的事件，但不会记录聊天内容。
 
-## Known limitation
+## 已知限制
 
-This project depends on implementation details of the ChatGPT web UI. OpenAI may change those details at any time, in which case the selectors may need a compatibility update.
+本项目依赖 ChatGPT Web 当前的页面实现细节。OpenAI 可能随时调整相关 UI；如果完成状态的 DOM 结构发生变化，可能需要更新 selector。
 
-## Privacy
+设计上优先选择“失效时不响”，而不是为了保持响铃而降低完成判断的准确性。
 
-All logic runs locally in the browser. The extension does not send or store conversation content.
+## 隐私
 
-## License
+所有逻辑都在浏览器本地运行。扩展不会上传或保存对话内容。
+
+## 许可证
 
 MIT
