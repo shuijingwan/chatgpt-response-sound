@@ -2,11 +2,11 @@
 
 [中文](README.md) | **English**
 
-A tiny Firefox extension that plays one short sound when a ChatGPT response finishes.
+A tiny Firefox extension that plays one short sound when ChatGPT Web shows a background response completion notice.
 
 ## Why
 
-When several ChatGPT tabs are working at the same time, visual completion notices are easy to miss. This extension has one job: **when a response is actually finished, make a sound**.
+When several ChatGPT tabs are working at the same time, background completion notices are easy to miss. This extension has one job: **when ChatGPT shows a new background completion notice, make a sound**.
 
 ## Design
 
@@ -14,9 +14,10 @@ When several ChatGPT tabs are working at the same time, visual completion notice
 - Runs only on `https://chatgpt.com/*`.
 - No account, backend, analytics, tracking, or network requests.
 - No popup, options page, history, or notification center.
-- No cross-tab deduplication. If two tabs finish, you hear two sounds.
-- Conservative completion detection: a new user turn or active generation must first be observed, then the latest assistant turn must expose its Copy action and generation must no longer be active before the sound is played.
-- If ChatGPT changes its UI and the completion signal cannot be confirmed, the extension should fail silent rather than guess.
+- It listens directly for the background response completion notices produced by ChatGPT Web. Each newly visible notice triggers the sound once.
+- Each tab works independently, with no cross-tab deduplication. If two tabs show completion notices, you hear two sounds.
+- It does not infer when ordinary foreground responses finish. A visible foreground response that produces no completion notice produces no sound.
+- If ChatGPT changes its UI and a completion notice cannot be recognized, the extension fails silent rather than guessing response state.
 
 ## Install for testing
 
@@ -30,27 +31,17 @@ Firefox removes temporary add-ons after the browser restarts. Packaging/signing 
 
 ## Usage
 
-Use ChatGPT normally. After you submit a prompt, the extension observes that tab's generation cycle. When that response is confirmed complete, it plays one short beep.
+Use ChatGPT normally. When ChatGPT Web shows a background response completion notice in that tab, the extension plays one short beep.
 
-Each tab is independent. Two completed tabs produce two beeps.
-
-## Debugging
-
-Open Firefox DevTools for a ChatGPT tab and filter the console for:
-
-```text
-[ChatGPT Response Sound]
-```
-
-The extension logs when generation is detected and when a completion sound is played. It does not log message contents.
+Each tab is independent. Completion notices in two tabs produce two beeps. An ordinary visible foreground response produces no sound unless ChatGPT also shows this kind of notice.
 
 ## Known limitation
 
-This project depends on implementation details of the ChatGPT web UI. OpenAI may change those details at any time, in which case the selectors may need a compatibility update.
+This project depends on ChatGPT Web's current notification implementation. OpenAI may change it at any time, in which case the extension may need an update.
 
 ## Privacy
 
-All logic runs locally in the browser. The extension does not send or store conversation content.
+All logic runs locally in the browser. The extension does not collect, send, or store conversation content, and it makes no network requests.
 
 ## License
 

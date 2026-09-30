@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ChatGPT Response Sound",
-  "version": "0.1.1",
-  "description": "Plays a short sound when a ChatGPT response finishes.",
+  "version": "0.1.2",
+  "description": "Plays a short sound when ChatGPT shows a background response completion notice.",
   "browser_specific_settings": {
     "gecko": {
       "id": "chatgpt-response-sound@shuijingwan",
